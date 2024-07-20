@@ -53,8 +53,7 @@ interface ExtendedWebsocket extends WebSocket {
 }
 
 /** Instrumentation for the `ws` library WebSocket class */
-export class WSInstrumentation extends InstrumentationBase<WS> {
-  protected override _config: WSInstrumentationConfig = {};
+export class WSInstrumentation extends InstrumentationBase<WSInstrumentationConfig> {
   protected _requestSpans = new WeakMap<IncomingMessage, Span>();
 
   constructor(config: WSInstrumentationConfig = {}) {
@@ -65,10 +64,10 @@ export class WSInstrumentation extends InstrumentationBase<WS> {
     const self = this;
 
     return [
-      new InstrumentationNodeModuleDefinition<WS>(
+      new InstrumentationNodeModuleDefinition(
         "ws",
         [">=7"],
-        (moduleExports, moduleVersion) => {
+        (moduleExports: typeof WS, moduleVersion) => {
           if (moduleExports === undefined || moduleExports === null) {
             return moduleExports;
           }
@@ -79,7 +78,7 @@ export class WSInstrumentation extends InstrumentationBase<WS> {
 
           diag.debug(`ws instrumentation: applying patch to ws@${moduleVersion}`);
 
-          const WebSocket = this._patchConstructor(moduleExports as any);
+          const WebSocket = this._patchConstructor(moduleExports);
 
           if (self._config.sendSpans) {
             if (isWrapped(WebSocket.prototype.send)) {
@@ -98,16 +97,16 @@ export class WSInstrumentation extends InstrumentationBase<WS> {
           }
           this._wrap(WebSocket.Server.prototype, "handleUpgrade", this._patchServerHandleUpgrade);
 
-          return WebSocket as any;
+          return WebSocket;
         },
-        (moduleExports) => {
+        (moduleExports: typeof WS) => {
           return (moduleExports as any).__original;
         }
       ),
-      new InstrumentationNodeModuleDefinition<typeof http>(
+      new InstrumentationNodeModuleDefinition(
         "http",
         ["*"],
-        (moduleExports) => {
+        (moduleExports: typeof http) => {
           if (moduleExports === undefined || moduleExports === null) {
             return moduleExports;
           }
@@ -117,16 +116,16 @@ export class WSInstrumentation extends InstrumentationBase<WS> {
           this._wrap(moduleExports.Server.prototype, "emit", this._patchIncomingRequestEmit);
           return moduleExports;
         },
-        (moduleExports) => {
+        (moduleExports: typeof http) => {
           if (moduleExports === undefined) return;
           this._diag.debug(`Removing patch for http`);
           this._unwrap(moduleExports.Server.prototype, "emit");
         }
       ),
-      new InstrumentationNodeModuleDefinition<typeof https>(
+      new InstrumentationNodeModuleDefinition(
         "https",
         ["*"],
-        (moduleExports) => {
+        (moduleExports: typeof https) => {
           if (moduleExports === undefined || moduleExports === null) {
             return moduleExports;
           }
@@ -136,7 +135,7 @@ export class WSInstrumentation extends InstrumentationBase<WS> {
           this._wrap(moduleExports.Server.prototype, "emit", this._patchIncomingRequestEmit);
           return moduleExports;
         },
-        (moduleExports) => {
+        (moduleExports: typeof https) => {
           if (moduleExports === undefined) return;
           this._diag.debug(`Removing patch for https`);
           this._unwrap(moduleExports.Server.prototype, "emit");
